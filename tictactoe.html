@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tic Tac Toe Multiplayer</title>
+  <style>
+    body {
+      margin: 0;
+      background: #111;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+
+    h1 {
+      margin-top: 20px;
+    }
+
+    #gameBoard {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      grid-template-rows: repeat(3, 100px);
+      gap: 5px;
+      justify-content: center;
+      margin-top: 30px;
+    }
+
+    .cell {
+      width: 100px;
+      height: 100px;
+      background: #222;
+      border: 2px solid #60cdee;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 2.5rem;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .cell:hover {
+      background: #333;
+    }
+
+    #status {
+      margin-top: 20px;
+      font-size: 1.5rem;
+    }
+
+    #restartBtn {
+      background: #60cdee;
+      border: none;
+      color: white;
+      padding: 10px 20px;
+      font-size: 1.2rem;
+      border-radius: 10px;
+      margin-top: 20px;
+      cursor: pointer;
+      display: none;
+      transition: background 0.3s;
+    }
+
+    #restartBtn:hover {
+      background: #0d8fbf;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>❌ Tic Tac Toe ⭕</h1>
+  <div id="gameBoard"></div>
+  <p id="status">Spieler ❌ ist am Zug</p>
+  <button id="restartBtn" onclick="restartGame()">🔄 Neustart</button>
+
+  <script>
+    const board = document.getElementById("gameBoard");
+    const statusText = document.getElementById("status");
+    const restartBtn = document.getElementById("restartBtn");
+
+    let currentPlayer = "❌";
+    let cells = ["", "", "", "", "", "", "", "", ""];
+    let gameOver = false;
+
+    function createBoard() {
+      board.innerHTML = "";
+      cells.forEach((cell, index) => {
+        const cellElement = document.createElement("div");
+        cellElement.classList.add("cell");
+        cellElement.dataset.index = index;
+        cellElement.addEventListener("click", handleClick);
+        board.appendChild(cellElement);
+      });
+    }
+
+    function handleClick(e) {
+      const index = e.target.dataset.index;
+      if (cells[index] !== "" || gameOver) return;
+
+      cells[index] = currentPlayer;
+      e.target.textContent = currentPlayer;
+
+      if (checkWin()) {
+        statusText.textContent = `🎉 Spieler ${currentPlayer} gewinnt! 🎉`;
+        gameOver = true;
+        restartBtn.style.display = "inline-block";
+      } else if (cells.every(cell => cell !== "")) {
+        statusText.textContent = "😮 Unentschieden!";
+        gameOver = true;
+        restartBtn.style.display = "inline-block";
+      } else {
+        currentPlayer = currentPlayer === "❌" ? "⭕" : "❌";
+        statusText.textContent = `Spieler ${currentPlayer} ist am Zug`;
+      }
+    }
+
+    function checkWin() {
+      const winPatterns = [
+        [0, 1, 2], [3, 4, 5], [6, 7, 8],
+        [0, 3, 6], [1, 4, 7], [2, 5, 8],
+        [0, 4, 8], [2, 4, 6]
+      ];
+      return winPatterns.some(pattern => {
+        return pattern.every(index => cells[index] === currentPlayer);
+      });
+    }
+
+    function restartGame() {
+      cells = ["", "", "", "", "", "", "", "", ""];
+      currentPlayer = "❌";
+      gameOver = false;
+      statusText.textContent = "Spieler ❌ ist am Zug";
+      restartBtn.style.display = "none";
+      createBoard();
+    }
+
+    createBoard();
+  </script>
+
+</body>
+</html>
