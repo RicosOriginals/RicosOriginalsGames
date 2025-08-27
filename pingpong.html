@@ -1,51 +1,516 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <title>Snake – Ricos Originals</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ping Pong – RicosGames</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@700&display=swap" rel="stylesheet" />
   <style>
-    body { background:#f0f4f8; margin:0; display:flex; justify-content:center; align-items:center; height:100vh; font-family:Arial; }
-    canvas { background:#222; border:4px solid #60cdee; border-radius:10px; }
+    body {
+      font-family: 'Roboto Condensed', sans-serif;
+      background: #f0f4f8;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      color: #333;
+      user-select: none;
+    }
+
+    header {
+      width: 100%;
+      background: #60cdee;
+      color: white;
+      padding: 20px 0;
+      text-align: center;
+      position: relative;
+    }
+
+    #backBtn {
+      position: absolute;
+      right: 20px;
+      top: 20px;
+      background: white;
+      color: #60cdee;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: bold;
+      text-decoration: none;
+      transition: background 0.3s ease;
+      user-select: none;
+    }
+
+    #backBtn:hover {
+      background: #e0f7ff;
+    }
+
+    #gameContainer {
+      margin: 30px auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+      padding: 20px;
+      width: 600px;
+      max-width: 90vw;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+
+    canvas {
+      background: #21B9E8;
+      border-radius: 12px;
+      display: block;
+      margin-bottom: 20px;
+    }
+
+    #scoreBoard {
+      font-size: 1.4rem;
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: #2c3e50;
+      user-select: none;
+    }
+
+    button, select {
+      background: #21B9E8;
+      border: none;
+      color: white;
+      font-weight: bold;
+      font-size: 1rem;
+      padding: 10px 25px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+      user-select: none;
+      margin: 5px;
+    }
+
+    button:hover, select:hover {
+      background: #17a2c2;
+    }
+
+    select {
+      padding: 8px 20px;
+    }
+
+    #startOverlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7);
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      font-size: 1.4rem;
+      z-index: 10;
+      text-align: center;
+      padding: 20px;
+    }
+
+    #startOverlay button {
+      margin-top: 15px;
+      min-width: 140px;
+    }
+
+    #overlayButtons {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    #settings {
+      margin-top: 20px;
+      font-size: 1rem;
+      color: white;
+    }
+
+    #settings label {
+      margin-right: 10px;
+      user-select: none;
+    }
+
+    footer {
+      margin-top: 20px; 
+      color: #555; 
+      font-size: 0.9rem; 
+      user-select:none;
+    }
   </style>
 </head>
 <body>
-<canvas id="game" width="400" height="400"></canvas>
+
+<header>
+  <a href="index.html" id="backBtn">⬅ Zurück</a>
+  <h1>🏓 Ping Pong</h1>
+</header>
+
+<div id="gameContainer">
+  <div id="scoreBoard">Spieler 1: 0 — Spieler 2: 0</div>
+  <canvas id="pong" width="600" height="400"></canvas>
+  
+  <div>
+    <button id="restartBtn">Neu starten</button>
+  </div>
+
+  <div id="startOverlay">
+    <p id="overlayMessage">Willkommen zu Ping Pong!</p>
+    <div id="settings">
+      <label for="winPoints">Punkte zum Gewinnen:</label>
+      <select id="winPoints">
+        <option value="5">5</option>
+        <option value="10" selected>10</option>
+        <option value="15">15</option>
+        <option value="20">20</option>
+        <option value="30">30</option>
+        <option value="40">40</option>
+        <option value="50">50</option>
+      </select>
+    </div>
+    <div id="overlayButtons">
+      <button id="startBtn">Spiel starten</button>
+      <button id="modeBtn">Modus wechseln: 1 Spieler</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Erstelle dein eigenes Spiel mit – RicosOriginalsGames
+</footer>
+
 <script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-let box = 20;
-let snake = [{x: 9*box, y: 9*box}];
-let food = {x: Math.floor(Math.random()*20)*box, y: Math.floor(Math.random()*20)*box};
-let d = "RIGHT";
-document.addEventListener("keydown", e=>{
-  if(e.key=="ArrowLeft" && d!="RIGHT") d="LEFT";
-  if(e.key=="ArrowUp" && d!="DOWN") d="UP";
-  if(e.key=="ArrowRight" && d!="LEFT") d="RIGHT";
-  if(e.key=="ArrowDown" && d!="UP") d="DOWN";
-});
-function draw(){
-  ctx.fillStyle="#222"; ctx.fillRect(0,0,400,400);
-  ctx.fillStyle="red"; ctx.fillRect(food.x, food.y, box, box);
-  for(let i=0;i<snake.length;i++){
-    ctx.fillStyle = i==0? "#60cdee":"white";
-    ctx.fillRect(snake[i].x, snake[i].y, box, box);
+  const canvas = document.getElementById('pong');
+  const ctx = canvas.getContext('2d');
+
+  const paddleWidth = 15;
+  const paddleHeight = 100;
+  const ballRadius = 10;
+
+  let player1Score = 0;
+  let player2Score = 0;
+
+  const scoreBoard = document.getElementById('scoreBoard');
+  const restartBtn = document.getElementById('restartBtn');
+  const modeBtn = document.getElementById('modeBtn');
+  const startBtn = document.getElementById('startBtn');
+  const startOverlay = document.getElementById('startOverlay');
+  const overlayMessage = document.getElementById('overlayMessage');
+  const overlayButtons = document.getElementById('overlayButtons');
+  const winPointsSelect = document.getElementById('winPoints');
+
+  // Paddles Position
+  const paddle1 = {
+    x: 10,
+    y: canvas.height / 2 - paddleHeight / 2,
+    dy: 0
+  };
+
+  const paddle2 = {
+    x: canvas.width - paddleWidth - 10,
+    y: canvas.height / 2 - paddleHeight / 2,
+    dy: 0
+  };
+
+  // Ball Position & Speed
+  const ball = {
+    x: canvas.width / 2,
+    y: canvas.height / 2,
+    dx: 0,
+    dy: 0,
+    radius: ballRadius
+  };
+
+  // Steuerung
+  const keys = {};
+
+  // Spielmodus: true = 1 Spieler (gegen KI), false = 2 Spieler
+  let onePlayerMode = false;
+
+  // Spiel läuft oder pausiert?
+  let running = false;
+
+  // Ob gerade Countdown läuft
+  let countingDown = false;
+
+  // Startgeschwindigkeit des Balls (langsamer Start)
+  const startSpeedX = 0.8;  // langsamer als vorher
+  const startSpeedY = 0.5;  // langsamer als vorher
+
+  // Paddle Geschwindigkeiten (Spieler)
+  const paddleSpeed = 7;
+
+  // KI Parameter
+  const aiSpeed = 4;  // max KI Geschwindigkeit
+  let aiReactionCooldown = 0; // Verzögerung für KI-Bewegung
+
+  // Punkte zum Gewinnen (Standard 10)
+  let winPoints = 10;
+
+  function drawRect(x, y, w, h, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w, h);
   }
-  let headX = snake[0].x, headY = snake[0].y;
-  if(d=="LEFT") headX-=box;
-  if(d=="UP") headY-=box;
-  if(d=="RIGHT") headX+=box;
-  if(d=="DOWN") headY+=box;
-  if(headX==food.x && headY==food.y){
-    food={x:Math.floor(Math.random()*20)*box,y:Math.floor(Math.random()*20)*box};
-  }else{ snake.pop(); }
-  let newHead={x:headX,y:headY};
-  if(headX<0||headY<0||headX>=400||headY>=400||snake.some(s=>s.x==headX&&s.y==headY)){
-    alert("Game Over!");
-    document.location.reload();
+
+  function drawCircle(x, y, r, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.fill();
   }
-  snake.unshift(newHead);
-}
-setInterval(draw,150);
+
+  function resetBall(direction = null) {
+    ball.x = canvas.width / 2;
+    ball.y = canvas.height / 2;
+
+    // Ball bewegt sich noch nicht, wartet auf Countdown
+    ball.dx = 0;
+    ball.dy = 0;
+
+    // Richtung wählen (1 oder -1) oder zufällig
+    if (direction === null) {
+      direction = Math.random() < 0.5 ? 1 : -1;
+    }
+    ball.startDirection = direction; // merken für später
+  }
+
+  function startBallMovement() {
+    // Ballbewegung nach Countdown starten, langsame Geschwindigkeit
+    ball.dx = startSpeedX * ball.startDirection;
+    ball.dy = startSpeedY * (Math.random() < 0.5 ? 1 : -1);
+  }
+
+  function update() {
+    if (!running) return;
+    if (countingDown) return;
+
+    // Paddle 1 bewegen
+    paddle1.y += paddle1.dy;
+
+    // Paddle 2 bewegen
+    if (onePlayerMode) {
+      // KI-Bewegung Paddle 2 mit Reaktions-Verzögerung
+      if (aiReactionCooldown <= 0) {
+        const paddleCenter = paddle2.y + paddleHeight / 2;
+        if (paddleCenter < ball.y - 20) {
+          paddle2.y += aiSpeed;
+        } else if (paddleCenter > ball.y + 20) {
+          paddle2.y -= aiSpeed;
+        }
+        aiReactionCooldown = 5; // Frame Countdown für Reaktion (ca 5 Frames)
+      } else {
+        aiReactionCooldown--;
+      }
+    } else {
+      paddle2.y += paddle2.dy;
+    }
+
+    // Grenzen für Paddles
+    if (paddle1.y < 0) paddle1.y = 0;
+    if (paddle1.y + paddleHeight > canvas.height) paddle1.y = canvas.height - paddleHeight;
+    if (paddle2.y < 0) paddle2.y = 0;
+    if (paddle2.y + paddleHeight > canvas.height) paddle2.y = canvas.height - paddleHeight;
+
+    // Ball Position aktualisieren
+    ball.x += ball.dx;
+    ball.y += ball.dy;
+
+    // Ball Kollision mit oberen und unteren Rand
+    if (ball.y - ball.radius < 0) {
+      ball.y = ball.radius;
+      ball.dy = -ball.dy;
+    }
+    if (ball.y + ball.radius > canvas.height) {
+      ball.y = canvas.height - ball.radius;
+      ball.dy = -ball.dy;
+    }
+
+    // Ball Kollision mit Paddle 1
+    if (ball.x - ball.radius < paddle1.x + paddleWidth &&
+        ball.y > paddle1.y &&
+        ball.y < paddle1.y + paddleHeight) {
+      ball.x = paddle1.x + paddleWidth + ball.radius;
+      ball.dx = -ball.dx;
+
+      // Ball Geschwindigkeit erhöhen, je näher am Paddle-Mittelpunkt desto höher dy
+      const paddleCenter = paddle1.y + paddleHeight / 2;
+      let diffY = ball.y - paddleCenter;
+      ball.dy = diffY * 0.25;
+      
+      // Geschwindigkeit leicht erhöhen (max Limit)
+      if (Math.abs(ball.dx) < 8) ball.dx *= 1.1;
+    }
+
+    // Ball Kollision mit Paddle 2
+    if (ball.x + ball.radius > paddle2.x &&
+        ball.y > paddle2.y &&
+        ball.y < paddle2.y + paddleHeight) {
+      ball.x = paddle2.x - ball.radius;
+      ball.dx = -ball.dx;
+
+      const paddleCenter = paddle2.y + paddleHeight / 2;
+      let diffY = ball.y - paddleCenter;
+      ball.dy = diffY * 0.25;
+
+      if (Math.abs(ball.dx) < 8) ball.dx *= 1.1;
+    }
+
+    // Ball geht links raus -> Punkt für Spieler 2
+    if (ball.x + ball.radius < 0) {
+      player2Score++;
+      updateScore();
+      checkWin();
+      resetBall(1);
+      startCountdown();
+    }
+
+    // Ball geht rechts raus -> Punkt für Spieler 1
+    if (ball.x - ball.radius > canvas.width) {
+      player1Score++;
+      updateScore();
+      checkWin();
+      resetBall(-1);
+      startCountdown();
+    }
+  }
+
+  function draw() {
+    // Hintergrund blau
+    drawRect(0, 0, canvas.width, canvas.height, '#21B9E8');
+
+    // Mittellinie
+    ctx.fillStyle = '#f0f4f8';
+    ctx.fillRect(canvas.width / 2 - 2, 0, 4, canvas.height);
+
+    // Paddles
+    drawRect(paddle1.x, paddle1.y, paddleWidth, paddleHeight, '#ff3c3c');
+    drawRect(paddle2.x, paddle2.y, paddleWidth, paddleHeight, '#60cdee');
+
+    // Ball
+    drawCircle(ball.x, ball.y, ball.radius, '#f0f4f8');
+  }
+
+  function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+  }
+
+  // Score aktualisieren
+  function updateScore() {
+    scoreBoard.textContent = `Spieler 1: ${player1Score} — Spieler 2: ${player2Score}`;
+  }
+
+  // Gewonnen prüfen
+  function checkWin() {
+    if (player1Score >= winPoints) {
+      endGame("Spieler 1 gewinnt!");
+    } else if (player2Score >= winPoints) {
+      endGame("Spieler 2 gewinnt!");
+    }
+  }
+
+  function endGame(winnerText) {
+    running = false;
+    overlayMessage.textContent = winnerText;
+    startBtn.textContent = "Nochmal spielen";
+    overlayButtons.style.display = "flex";
+    startOverlay.style.display = "flex";
+  }
+
+  // Countdown vor Ballstart
+  let countdownValue = 3;
+  function startCountdown() {
+    countingDown = true;
+    countdownValue = 3;
+    overlayMessage.textContent = `Spiel startet in ${countdownValue}...`;
+    overlayButtons.style.display = "none";
+    startOverlay.style.display = "flex";
+
+    const countdownInterval = setInterval(() => {
+      countdownValue--;
+      if (countdownValue > 0) {
+        overlayMessage.textContent = `Spiel startet in ${countdownValue}...`;
+      } else {
+        clearInterval(countdownInterval);
+        countingDown = false;
+        startOverlay.style.display = "none";
+        startBallMovement();
+      }
+    }, 1000);
+  }
+
+  // Tastatursteuerung
+  document.addEventListener('keydown', e => {
+    keys[e.code] = true;
+
+    // Paddle 1 (W/S)
+    if (e.code === 'KeyW') paddle1.dy = -paddleSpeed;
+    if (e.code === 'KeyS') paddle1.dy = paddleSpeed;
+
+    if (!onePlayerMode) {
+      // Paddle 2 (Pfeiltasten)
+      if (e.code === 'ArrowUp') paddle2.dy = -paddleSpeed;
+      if (e.code === 'ArrowDown') paddle2.dy = paddleSpeed;
+    }
+  });
+
+  document.addEventListener('keyup', e => {
+    keys[e.code] = false;
+
+    if (e.code === 'KeyW' || e.code === 'KeyS') paddle1.dy = 0;
+
+    if (!onePlayerMode) {
+      if (e.code === 'ArrowUp' || e.code === 'ArrowDown') paddle2.dy = 0;
+    }
+  });
+
+  // Start Button Klick
+  startBtn.addEventListener('click', () => {
+    player1Score = 0;
+    player2Score = 0;
+    updateScore();
+    winPoints = parseInt(winPointsSelect.value);
+    resetBall();
+    startCountdown();
+    running = true;
+  });
+
+  // Modus wechseln (1 Spieler / 2 Spieler)
+  modeBtn.addEventListener('click', () => {
+    onePlayerMode = !onePlayerMode;
+    if (onePlayerMode) {
+      modeBtn.textContent = "Modus wechseln: 2 Spieler";
+      paddle2.dy = 0; // Steuerung Paddle2 deaktivieren
+    } else {
+      modeBtn.textContent = "Modus wechseln: 1 Spieler";
+    }
+  });
+
+  // Neu starten Button
+  restartBtn.addEventListener('click', () => {
+    running = false;
+    player1Score = 0;
+    player2Score = 0;
+    updateScore();
+    resetBall();
+    startOverlay.style.display = "flex";
+    overlayMessage.textContent = "Spiel neu starten";
+    startBtn.textContent = "Spiel starten";
+    overlayButtons.style.display = "flex";
+  });
+
+  // Initial Setup
+  resetBall();
+  updateScore();
+  gameLoop();
+
 </script>
+
 </body>
 </html>
