@@ -5,29 +5,37 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Snake Deluxe</title>
 <style>
-  body {margin:0; background:#111; color:white; font-family:Arial, sans-serif; text-align:center;}
-  h1 {margin:20px 0;}
-  canvas {background:#222; display:block; margin:0 auto; border:3px solid #60cdee; border-radius:10px;}
-  button {background:#60cdee; border:none; color:white; padding:10px 20px; margin:5px; border-radius:8px; font-size:16px; cursor:pointer;}
-  #leaderboard {margin-top:15px;}
-  .controls {display:flex; flex-direction:column; align-items:center; margin-top:10px;}
-  .row {display:flex; gap:10px;}
-  .ctrl-btn {width:60px; height:60px; font-size:24px; background:#60cdee; border:none; border-radius:50%; cursor:pointer;}
+body {margin:0; background:#111; color:white; font-family:Arial, sans-serif; text-align:center;}
+canvas {display:block; margin:0 auto; border:3px solid #60cdee; border-radius:10px;}
+button {background:#60cdee; border:none; color:white; padding:10px 20px; margin:5px; border-radius:8px; font-size:16px; cursor:pointer;}
+button:hover {background:#4db0d6;}
+#hud {display:flex; justify-content:center; gap:20px; margin-top:10px;}
+#inventory {margin-top:10px;}
+#leaderboard {margin-top:15px; text-align:center;}
+.controls {display:flex; flex-direction:column; align-items:center; margin-top:10px;}
+.row {display:flex; gap:10px;}
+.ctrl-btn {width:60px; height:60px; font-size:24px; background:#60cdee; border:none; border-radius:50%; cursor:pointer;}
+.ctrl-btn:hover {background:#4db0d6;}
 </style>
 </head>
 <body>
 
 <h1>🐍 Snake Deluxe</h1>
-<p id="levelInfo">Level: 1</p>
+<div id="hud">
+  <div id="levelInfo">Level: 1</div>
+  <div id="score">Score: 0</div>
+  <div id="hpInfo">HP: 3</div>
+  <div id="highscore">Highscore: 0</div>
+</div>
+
 <canvas id="game" width="400" height="400"></canvas>
-<p id="score">Score: 0</p>
-<p id="highscore">Highscore: 0</p>
 <button onclick="restartGame()">🔄 Neustart</button>
 <button onclick="changeSkin()">🎨 Skin wechseln</button>
 <button onclick="changeName()">✏️ Namen ändern</button>
+
+<div id="inventory"><h3>Inventar</h3><div id="invList">Keine Tränke</div></div>
 <div id="leaderboard"></div>
 
-<!-- Mobile Controls -->
 <div class="controls">
   <button class="ctrl-btn" onclick="setDir('UP')">⬆️</button>
   <div class="row">
@@ -40,142 +48,212 @@
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-const scoreText = document.getElementById("score");
-const highscoreText = document.getElementById("highscore");
 const levelInfo = document.getElementById("levelInfo");
+const scoreText = document.getElementById("score");
+const hpInfo = document.getElementById("hpInfo");
+const invList = document.getElementById("invList");
 const leaderboardDiv = document.getElementById("leaderboard");
-
-// 🔥 JSONBin API für globale Bestenliste
-const API_URL = "https://api.jsonbin.io/v3/b/68b05790d0ea881f40693efd "; // <--- hier Bin-ID einfügen
-const API_KEY = "$2a$10$cWjMtKfp3l/afQlGKk1xrePNrrFUuGXlvV2bkUYJ5nvXpXsIlM/DC"; // <--- hier Secret Key einfügen
+const highscoreDiv = document.getElementById("highscore");
 
 const box = 20;
-let snake, direction, food, score, highscore, gameOver, level, skinIndex;
+let snake, direction, food, potions=[], score, hp, level=1, skinIndex=0, speed, gameOver, gameLoopTimeout;
+let inventory = [];
+let obstacles = [];
+let skins = ["#60cdee","#ffcc00","#00ff99","#ff3366"];
 let playerName = localStorage.getItem("playerName") || prompt("Gib deinen Namen ein:") || "Player";
-if(!localStorage.getItem("playerName")) localStorage.setItem("playerName", playerName);
+localStorage.setItem("playerName", playerName);
+let localHighscore = localStorage.getItem("highscore") || 0;
 
-let maps = [
-  [],
-  [{x:200,y:200},{x:220,y:200},{x:240,y:200}],
-  [{x:100,y:100},{x:120,y:100},{x:140,y:100},{x:160,y:100}]
+const API_URL = "https://api.jsonbin.io/v3/b/68b05790d0ea881f40693efd";
+const API_KEY = "$2a$10$cWjMtKfp3l/afQlGKk1xrePNrrFUuGXlvV2bkUYJ5nvXpXsIlM/DC";
+
+// Level-Konfigurationen bis Level 15
+let levelConfigs = [
+  {speed:120, obstacles:0, potionChance:0.005, bg:"#222"},  // Level1
+  {speed:110, obstacles:1, potionChance:0.005, bg:"#222"},  // Level2
+  {speed:100, obstacles:1, potionChance:0.005, bg:"#222"},  // Level3 weniger Hindernisse
+  {speed:90, obstacles:3, potionChance:0.005, bg:"#222"},
+  {speed:85, obstacles:4, potionChance:0.005, bg:"#222"},
+  {speed:80, obstacles:5, potionChance:0.005, bg:"#222"},
+  {speed:75, obstacles:6, potionChance:0.005, bg:"#222"},
+  {speed:70, obstacles:7, potionChance:0.005, bg:"#222"},
+  {speed:65, obstacles:8, potionChance:0.005, bg:"#222"},
+  {speed:60, obstacles:10, potionChance:0.005, bg:"#333"}, // Level10 anderes Thema
+  {speed:58, obstacles:11, potionChance:0.005, bg:"#444"},
+  {speed:55, obstacles:12, potionChance:0.005, bg:"#555"},
+  {speed:52, obstacles:13, potionChance:0.005, bg:"#666"},
+  {speed:50, obstacles:14, potionChance:0.005, bg:"#777"},
+  {speed:48, obstacles:15, potionChance:0.005, bg:"#888"}
 ];
-let skins = ["#60cdee", "#ffcc00", "#00ff99", "#ff3366"];
 
-async function loadLeaderboard() {
-  try {
-    let res = await fetch(API_URL, { headers: { "X-Master-Key": API_KEY }});
+function spawnFood(){ return {x:Math.floor(Math.random()*20)*box, y:Math.floor(Math.random()*20)*box, color:"red"}; }
+function spawnPotion(){
+  const types = [
+    {key:"H", color:"pink", effect:"heal"}, 
+    {key:"G", color:"yellow", effect:"slow"}
+  ];
+  let p = types[Math.floor(Math.random()*types.length)];
+  p.x = Math.floor(Math.random()*20)*box;
+  p.y = Math.floor(Math.random()*20)*box;
+  return p;
+}
+
+function setupLevel(lvl){
+  let config = levelConfigs[Math.min(lvl-1, levelConfigs.length-1)];
+  speed = config.speed;
+  obstacles = [];
+  for(let i=0;i<config.obstacles;i++){
+    obstacles.push({x:Math.floor(Math.random()*20)*box, y:Math.floor(Math.random()*20)*box});
+  }
+  canvas.style.background=config.bg;
+}
+
+async function loadLeaderboard(){
+  try{
+    let res = await fetch(API_URL, {headers:{"X-Master-Key":API_KEY}});
     let data = await res.json();
     let scores = data.record.leaderboard || [];
-    scores.sort((a,b)=>b.score-a.score);
+    scores.sort((a,b)=>b.score-b.score);
     scores = scores.slice(0,10);
-    let html = "<h3>🏆 Bestenliste</h3><ol>";
-    scores.forEach(s=>{ html += `<li>${s.name}: ${s.score}</li>`; });
-    html += "</ol>";
+    let html="<h3>🏆 Bestenliste</h3><ol>";
+    for(let s of scores){ html += `<li>${s.name}: ${s.score}</li>`;}
+    html+="</ol>";
     leaderboardDiv.innerHTML = html;
-  } catch(e) {
-    leaderboardDiv.innerHTML = "Fehler beim Laden";
-    console.error(e);
-  }
+  }catch(e){ console.error(e); leaderboardDiv.innerHTML="Fehler beim Laden"; }
 }
 
-async function saveScoreGlobal() {
-  try {
-    let res = await fetch(API_URL, { headers: { "X-Master-Key": API_KEY }});
+async function saveScore(){
+  try{
+    let res = await fetch(API_URL, {headers:{"X-Master-Key":API_KEY}});
     let data = await res.json();
     let scores = data.record.leaderboard || [];
-    scores.push({name: playerName, score});
+    scores.push({name:playerName, score});
     scores.sort((a,b)=>b.score-a.score);
     scores = scores.slice(0,10);
-    await fetch(API_URL, {
-      method:"PUT",
-      headers:{ "X-Master-Key": API_KEY, "Content-Type":"application/json" },
-      body: JSON.stringify({ leaderboard: scores })
-    });
+    await fetch(API_URL,{method:"PUT", headers:{"X-Master-Key":API_KEY,"Content-Type":"application/json"}, body:JSON.stringify({leaderboard:scores})});
     loadLeaderboard();
-  } catch(e){ console.error(e); }
+  }catch(e){ console.error(e);}
 }
 
-function initGame() {
-  snake = [{x:9*box, y:9*box}];
+function initGame(){
+  snake=[{x:9*box,y:9*box}];
   direction="RIGHT";
+  score=0; hp=3; gameOver=false;
   food=spawnFood();
-  score=0;
-  gameOver=false;
-  level=level||1;
-  skinIndex=skinIndex||0;
-  highscore=localStorage.getItem("highscore")||0;
-  highscoreText.textContent="Highscore: "+highscore;
+  inventory=[]; 
+  setupLevel(level);
+  updateHUD(); updateInventory(); draw();
   loadLeaderboard();
+  if(gameLoopTimeout) clearTimeout(gameLoopTimeout);
+  gameLoopTimeout=setTimeout(gameLoop,speed);
 }
 
-function spawnFood() {
-  return { x: Math.floor(Math.random()*20)*box, y: Math.floor(Math.random()*20)*box };
+function setDir(d){ direction=d; }
+function changeName(){
+  let newName = prompt("Neuen Namen eingeben:", playerName);
+  if(newName){ playerName=newName; localStorage.setItem("playerName", newName); playerName=newName; }
 }
 
-document.addEventListener("keydown", e => {
-  const key = e.key.toLowerCase();
-  if(key==="a" && direction!=="RIGHT") direction="LEFT";
-  if(key==="w" && direction!=="DOWN") direction="UP";
-  if(key==="d" && direction!=="LEFT") direction="RIGHT";
-  if(key==="s" && direction!=="UP") direction="DOWN";
-});
-function setDir(d){ 
-  if(d==="LEFT" && direction!=="RIGHT") direction="LEFT";
-  if(d==="RIGHT" && direction!=="LEFT") direction="RIGHT";
-  if(d==="UP" && direction!=="DOWN") direction="UP";
-  if(d==="DOWN" && direction!=="UP") direction="DOWN";
-}
+document.addEventListener("keydown", e=>{
+  const key = e.key.toUpperCase();
+  if(key==="W" && direction!=="DOWN") direction="UP";
+  if(key==="S" && direction!=="UP") direction="DOWN";
+  if(key==="A" && direction!=="RIGHT") direction="LEFT";
+  if(key==="D" && direction!=="LEFT") direction="RIGHT";
 
-function draw() {
-  ctx.fillStyle="#222";
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle="gray";
-  for(let wall of maps[level-1]) ctx.fillRect(wall.x, wall.y, box, box);
-  ctx.fillStyle="red"; ctx.fillRect(food.x,food.y,box,box);
-  for(let i=0;i<snake.length;i++){
-    ctx.fillStyle=i===0?skins[skinIndex]:"white";
-    ctx.fillRect(snake[i].x,snake[i].y,box,box);
+  // Inventar-Trank benutzen
+  let index = inventory.findIndex(p=>p.key===key);
+  if(index!==-1){
+    let p = inventory[index];
+    if(p.effect==="heal" && hp<5) hp++;
+    if(p.effect==="slow"){
+      speed=200;
+      setTimeout(()=>{speed=levelConfigs[Math.min(level-1, levelConfigs.length-1)].speed;},5000);
+    }
+    inventory.splice(index,1); 
+    updateInventory(); updateHUD();
   }
-  scoreText.textContent="Score: "+score;
+});
 
+function updateHUD(){
+  levelInfo.textContent="Level: "+level;
+  scoreText.textContent="Score: "+score;
+  hpInfo.textContent="HP: "+hp;
+  highscoreDiv.textContent="Highscore: "+localHighscore;
+}
+
+function updateInventory(){
+  if(inventory.length===0) invList.textContent="Keine Tränke";
+  else invList.innerHTML = inventory.map(p=>`${p.key}: ${p.effect}`).join(", ");
+}
+
+function drawObstacles(){ ctx.fillStyle="gray"; obstacles.forEach(o=>ctx.fillRect(o.x,o.y,box,box)); }
+function drawPotions(){ potions.forEach(p=>{ctx.fillStyle=p.color; ctx.fillRect(p.x,p.y,box,box);}); }
+function draw(){
+  ctx.fillStyle=canvas.style.background||"#222"; ctx.fillRect(0,0,canvas.width,canvas.height);
+  drawObstacles(); drawPotions();
+  snake.forEach((s,i)=>{ ctx.fillStyle=i===0?skins[skinIndex]:"white"; ctx.fillRect(s.x,s.y,box,box); });
+  ctx.fillStyle=food.color; ctx.fillRect(food.x,food.y,box,box);
+}
+
+function gameLoop(){
   if(gameOver){
     ctx.fillStyle="red"; ctx.font="30px Arial";
-    ctx.fillText("GAME OVER!",120,200);
-    return;
+    ctx.fillText("GAME OVER!",80,200);
+    if(score>localHighscore){ localHighscore=score; localStorage.setItem("highscore",score);}
+    saveScore(); updateHUD(); return;
   }
 
-  let headX=snake[0].x, headY=snake[0].y;
+  let headX=snake[0].x; let headY=snake[0].y;
   if(direction==="LEFT") headX-=box;
-  if(direction==="UP") headY-=box;
   if(direction==="RIGHT") headX+=box;
+  if(direction==="UP") headY-=box;
   if(direction==="DOWN") headY+=box;
 
-  if(headX===food.x && headY===food.y){
-    score++;
-    if(score % 10 === 0 && level < maps.length){ level++; levelInfo.textContent="Level: "+level; }
+  if(headX===food.x && headY===food.y){ 
+    score++; snake.unshift({x:headX,y:headY});
     food=spawnFood();
-  } else snake.pop();
+    if(score%10===0 && level<15){ level++; setupLevel(level); }
+  } else snake.pop(), snake.unshift({x:headX,y:headY});
 
-  let newHead={x:headX,y:headY};
-  if(headX<0||headY<0||headX>=canvas.width||headY>=canvas.height
-     ||snake.some(p=>p.x===headX && p.y===headY)
-     ||maps[level-1].some(w=>w.x===headX && w.y===headY)){
-    gameOver=true;
-    if(score>highscore) localStorage.setItem("highscore",score);
-    saveScoreGlobal();
-  } else snake.unshift(newHead);
+  // Tränke einsammeln
+  for(let i=0;i<potions.length;i++){
+    if(headX===potions[i].x && headY===potions[i].y){
+      inventory.push(potions[i]); potions.splice(i,1); updateInventory(); break;
+    }
+  }
+
+  let collided=false;
+  if(headX<0){ headX=0; collided=true; }
+  if(headY<0){ headY=0; collided=true; }
+  if(headX>=canvas.width){ headX=canvas.width-box; collided=true; }
+  if(headY>=canvas.height){ headY=canvas.height-box; collided=true; }
+  if(snake.slice(1).some(p=>p.x===headX && p.y===headY)) collided=true;
+  if(obstacles.some(o=>o.x===headX && o.y===headY)){
+    collided=true;
+    if(direction==="LEFT") headX+=box;
+    if(direction==="RIGHT") headX-=box;
+    if(direction==="UP") headY+=box;
+    if(direction==="DOWN") headY-=box;
+  }
+
+  if(collided){ hp--; if(hp<=0) gameOver=true; }
+
+  snake[0]={x:headX,y:headY};
+
+  // neue Tränke spawnen
+  if(Math.random()<levelConfigs[Math.min(level-1, levelConfigs.length-1)].potionChance){
+    potions.push(spawnPotion());
+  }
+
+  updateHUD(); draw();
+  gameLoopTimeout=setTimeout(gameLoop,speed);
 }
 
 function restartGame(){ initGame(); }
-function gameLoop(){ draw(); setTimeout(gameLoop,120); }
-function changeSkin(){ skinIndex=(skinIndex+1)%skins.length; restartGame(); }
-function changeName(){ 
-  let newName = prompt("Neuen Namen eingeben:", playerName);
-  if(newName){ playerName=newName; localStorage.setItem("playerName", playerName); }
-}
+function changeSkin(){ skinIndex=(skinIndex+1)%skins.length; }
 
 initGame();
-gameLoop();
 </script>
 </body>
 </html>
