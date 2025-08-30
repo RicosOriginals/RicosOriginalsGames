@@ -67,24 +67,31 @@ let localHighscore = localStorage.getItem("highscore") || 0;
 const API_URL = "https://api.jsonbin.io/v3/b/68b05790d0ea881f40693efd";
 const API_KEY = "$2a$10$cWjMtKfp3l/afQlGKk1xrePNrrFUuGXlvV2bkUYJ5nvXpXsIlM/DC";
 
-// Level-Konfigurationen bis Level 15
-let levelConfigs = [
-  {speed:120, obstacles:0, potionChance:0.005, bg:"#222"},  // Level1
-  {speed:110, obstacles:1, potionChance:0.005, bg:"#222"},  // Level2
-  {speed:100, obstacles:1, potionChance:0.005, bg:"#222"},  // Level3 weniger Hindernisse
-  {speed:90, obstacles:3, potionChance:0.005, bg:"#222"},
-  {speed:85, obstacles:4, potionChance:0.005, bg:"#222"},
-  {speed:80, obstacles:5, potionChance:0.005, bg:"#222"},
-  {speed:75, obstacles:6, potionChance:0.005, bg:"#222"},
-  {speed:70, obstacles:7, potionChance:0.005, bg:"#222"},
-  {speed:65, obstacles:8, potionChance:0.005, bg:"#222"},
-  {speed:60, obstacles:10, potionChance:0.005, bg:"#333"}, // Level10 anderes Thema
-  {speed:58, obstacles:11, potionChance:0.005, bg:"#444"},
-  {speed:55, obstacles:12, potionChance:0.005, bg:"#555"},
-  {speed:52, obstacles:13, potionChance:0.005, bg:"#666"},
-  {speed:50, obstacles:14, potionChance:0.005, bg:"#777"},
-  {speed:48, obstacles:15, potionChance:0.005, bg:"#888"}
-];
+// Schild-Variablen
+let shieldActive = false;
+let shieldCooldown = false;
+
+function activateShield() {
+  shieldActive = true;
+  setTimeout(() => { shieldActive = false; }, 1000); // 1 Sekunde Schild
+  shieldCooldown = true;
+  setTimeout(() => { shieldCooldown = false; }, 30000); // 30 Sekunden Cooldown
+}
+
+// Level-Konfiguration
+let levelConfigs = [];
+for(let i=1;i<=20;i++){
+  let bg = "#222"; 
+  if(i===10) bg="#555"; 
+  if(i>=11 && i<=15) bg="#0f3"; 
+  if(i>=16) bg="#909"; 
+  levelConfigs.push({
+    speed: Math.max(150 - i*5, 50),
+    obstacles: Math.min(i, 20),
+    potionChance: 0.005,
+    bg
+  });
+}
 
 function spawnFood(){ return {x:Math.floor(Math.random()*20)*box, y:Math.floor(Math.random()*20)*box, color:"red"}; }
 function spawnPotion(){
@@ -140,7 +147,7 @@ function initGame(){
   direction="RIGHT";
   score=0; hp=3; gameOver=false;
   food=spawnFood();
-  inventory=[]; 
+  inventory=[]; potions=[];
   setupLevel(level);
   updateHUD(); updateInventory(); draw();
   loadLeaderboard();
@@ -151,7 +158,7 @@ function initGame(){
 function setDir(d){ direction=d; }
 function changeName(){
   let newName = prompt("Neuen Namen eingeben:", playerName);
-  if(newName){ playerName=newName; localStorage.setItem("playerName", newName); playerName=newName; }
+  if(newName){ playerName=newName; localStorage.setItem("playerName", newName); }
 }
 
 document.addEventListener("keydown", e=>{
@@ -178,7 +185,7 @@ document.addEventListener("keydown", e=>{
 function updateHUD(){
   levelInfo.textContent="Level: "+level;
   scoreText.textContent="Score: "+score;
-  hpInfo.textContent="HP: "+hp;
+  hpInfo.textContent="HP: "+hp+(shieldActive?" 🛡️":"");
   highscoreDiv.textContent="Highscore: "+localHighscore;
 }
 
@@ -210,10 +217,14 @@ function gameLoop(){
   if(direction==="UP") headY-=box;
   if(direction==="DOWN") headY+=box;
 
+  // Grenzen checken und Snake fixieren
+  headX = Math.max(0, Math.min(headX, canvas.width - box));
+  headY = Math.max(0, Math.min(headY, canvas.height - box));
+
   if(headX===food.x && headY===food.y){ 
     score++; snake.unshift({x:headX,y:headY});
     food=spawnFood();
-    if(score%10===0 && level<15){ level++; setupLevel(level); }
+    if(score%10===0 && level<20){ level++; setupLevel(level); }
   } else snake.pop(), snake.unshift({x:headX,y:headY});
 
   // Tränke einsammeln
@@ -224,24 +235,22 @@ function gameLoop(){
   }
 
   let collided=false;
-  if(headX<0){ headX=0; collided=true; }
-  if(headY<0){ headY=0; collided=true; }
-  if(headX>=canvas.width){ headX=canvas.width-box; collided=true; }
-  if(headY>=canvas.height){ headY=canvas.height-box; collided=true; }
   if(snake.slice(1).some(p=>p.x===headX && p.y===headY)) collided=true;
-  if(obstacles.some(o=>o.x===headX && o.y===headY)){
-    collided=true;
-    if(direction==="LEFT") headX+=box;
-    if(direction==="RIGHT") headX-=box;
-    if(direction==="UP") headY+=box;
-    if(direction==="DOWN") headY-=box;
+  if(obstacles.some(o=>o.x===headX && o.y===headY)) collided=true;
+
+  if(collided && !shieldActive){
+    hp--;
+    if(hp<=0 && !shieldCooldown){
+      activateShield();
+      hp=3;
+      snake=[{x:9*box,y:9*box}]; // Respawn Mitte
+      direction="RIGHT";
+    } else if(hp<=0 && shieldCooldown){
+      gameOver=true;
+    }
   }
 
-  if(collided){ hp--; if(hp<=0) gameOver=true; }
-
-  snake[0]={x:headX,y:headY};
-
-  // neue Tränke spawnen
+  // Potions spawnen
   if(Math.random()<levelConfigs[Math.min(level-1, levelConfigs.length-1)].potionChance){
     potions.push(spawnPotion());
   }
